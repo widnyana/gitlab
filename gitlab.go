@@ -67,7 +67,7 @@ func chatSettings(c *integram.Context) ChatSettings {
 	return s
 }
 
-const apiSuffixURL = "/api/v3/"
+const apiSuffixURL = "/api/v4/"
 
 // Service returns integram.Service from gitlab.Config
 func (c Config) Service() *integram.Service {
@@ -406,7 +406,7 @@ func client(c *integram.Context) *api.Client {
 }
 
 func sendIssueComment(c *integram.Context, projectID int, issueID int, text string) error {
-	note, _, err := client(c).Notes.CreateIssueNote(projectID, issueID, &api.CreateIssueNoteOptions{Body: text})
+	note, _, err := client(c).Notes.CreateIssueNote(projectID, issueID, &api.CreateIssueNoteOptions{Body: &text})
 
 	if note != nil {
 		c.Message.UpdateEventsID(c.Db(), "issue_note_"+strconv.Itoa(note.ID))
@@ -416,7 +416,7 @@ func sendIssueComment(c *integram.Context, projectID int, issueID int, text stri
 }
 
 func sendMRComment(c *integram.Context, projectID int, MergeRequestID int, text string) error {
-	note, _, err := client(c).Notes.CreateMergeRequestNote(projectID, MergeRequestID, &api.CreateMergeRequestNoteOptions{Body: text})
+	note, _, err := client(c).Notes.CreateMergeRequestNote(projectID, MergeRequestID, &api.CreateMergeRequestNoteOptions{Body: &text})
 
 	if note != nil {
 		c.Message.UpdateEventsID(c.Db(), noteUniqueID(projectID, strconv.Itoa(note.ID)))
@@ -426,7 +426,7 @@ func sendMRComment(c *integram.Context, projectID int, MergeRequestID int, text 
 }
 
 func sendSnippetComment(c *integram.Context, projectID int, SnippetID int, text string) error {
-	note, _, err := client(c).Notes.CreateSnippetNote(projectID, SnippetID, &api.CreateSnippetNoteOptions{Body: text})
+	note, _, err := client(c).Notes.CreateSnippetNote(projectID, SnippetID, &api.CreateSnippetNoteOptions{Body: &text})
 	if note != nil {
 		c.Message.UpdateEventsID(c.Db(), noteUniqueID(projectID, strconv.Itoa(note.ID)))
 	}
@@ -442,7 +442,7 @@ func trim(s string, max int) string {
 }
 
 func sendCommitComment(c *integram.Context, projectID int, commitID string, msg *integram.IncomingMessage) error {
-	note, _, err := client(c).Notes.CreateCommitNote(projectID, commitID, &api.CreateCommitNoteOptions{Note: msg.Text})
+	note, _, err := client(c).Notes.CreateCommitNote(projectID, commitID, &api.CreateCommitNoteOptions{Note: &msg.Text})
 	if err != nil {
 		return err
 	}
@@ -711,7 +711,7 @@ func webhookHandler(c *integram.Context, request *integram.WebhookContext) (err 
 			return nil
 		}
 
-		msg.SetReplyAction(issueReplied, c.ServiceBaseURL.String(), wh.ObjectAttributes.ProjectID, wh.ObjectAttributes.ID)
+		msg.SetReplyAction(issueReplied, c.ServiceBaseURL.String(), wh.ObjectAttributes.ProjectID, wh.ObjectAttributes.Iid)
 
 		if wh.ObjectAttributes.Action == "open" {
 			return msg.AddEventID("issue_" + strconv.Itoa(wh.ObjectAttributes.ID)).SetText(fmt.Sprintf("%s %s %s at %s:\n%s\n%s", mention(c, wh.User.Username, wh.UserEmail), wh.ObjectAttributes.State, m.URL("issue", wh.ObjectAttributes.URL), m.URL(wh.User.Username+" / "+wh.Repository.Name, wh.Repository.Homepage), m.Bold(wh.ObjectAttributes.Title), wh.ObjectAttributes.Description)).

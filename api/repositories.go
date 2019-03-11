@@ -1,5 +1,5 @@
 //
-// Copyright 2015, Sander van Harmelen
+// Copyright 2017, Sander van Harmelen
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,96 +25,19 @@ import (
 // RepositoriesService handles communication with the repositories related
 // methods of the GitLab API.
 //
-// GitLab API docs: http://doc.gitlab.com/ce/api/repositories.html
+// GitLab API docs: https://docs.gitlab.com/ce/api/repositories.html
 type RepositoriesService struct {
 	client *Client
 }
 
-// Tag represents a GitLab repository tag.
-//
-// GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#list-project-repository-tags
-type Tag struct {
-	Commit  *Commit `json:"commit"`
-	Name    string  `json:"name"`
-	Message string  `json:"message"`
-}
-
-func (r Tag) String() string {
-	return Stringify(r)
-}
-
-// ListTags gets a list of repository tags from a project, sorted by name in
-// reverse alphabetical order.
-//
-// GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#list-project-repository-tags
-func (s *RepositoriesService) ListTags(pid interface{}) ([]*Tag, *Response, error) {
-	project, err := parseID(pid)
-	if err != nil {
-		return nil, nil, err
-	}
-	u := fmt.Sprintf("projects/%s/repository/tags", url.QueryEscape(project))
-
-	req, err := s.client.NewRequest("GET", u, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var t []*Tag
-	resp, err := s.client.Do(req, &t)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return t, resp, err
-}
-
-// CreateTagOptions represents the available CreateTag() options.
-//
-// GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#create-a-new-tag
-type CreateTagOptions struct {
-	TagName string `url:"tag_name,omitempty" json:"tag_name,omitempty"`
-	Ref     string `url:"ref,omitempty" json:"ref,omitempty"`
-	Message string `url:"message,omitempty" json:"message,omitempty"`
-}
-
-// CreateTag creates a new tag in the repository that points to the supplied ref.
-//
-// GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#create-a-new-tag
-func (s *RepositoriesService) CreateTag(
-	pid interface{},
-	opt *CreateTagOptions) (*Tag, *Response, error) {
-	project, err := parseID(pid)
-	if err != nil {
-		return nil, nil, err
-	}
-	u := fmt.Sprintf("projects/%s/repository/tags", url.QueryEscape(project))
-
-	req, err := s.client.NewRequest("POST", u, opt)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	t := new(Tag)
-	resp, err := s.client.Do(req, t)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return t, resp, err
-}
-
 // TreeNode represents a GitLab repository file or directory.
 //
-// GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#list-repository-tree
+// GitLab API docs: https://docs.gitlab.com/ce/api/repositories.html
 type TreeNode struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 	Type string `json:"type"`
+	Path string `json:"path"`
 	Mode string `json:"mode"`
 }
 
@@ -125,26 +48,26 @@ func (t TreeNode) String() string {
 // ListTreeOptions represents the available ListTree() options.
 //
 // GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#list-repository-tree
+// https://docs.gitlab.com/ce/api/repositories.html#list-repository-tree
 type ListTreeOptions struct {
-	Path    string `url:"path,omitempty" json:"path,omitempty"`
-	RefName string `url:"ref_name,omitempty" json:"ref_name,omitempty"`
+	ListOptions
+	Path      *string `url:"path,omitempty" json:"path,omitempty"`
+	Ref       *string `url:"ref,omitempty" json:"ref,omitempty"`
+	Recursive *bool   `url:"recursive,omitempty" json:"recursive,omitempty"`
 }
 
 // ListTree gets a list of repository files and directories in a project.
 //
 // GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#list-repository-tree
-func (s *RepositoriesService) ListTree(
-	pid interface{},
-	opt *ListTreeOptions) ([]*TreeNode, *Response, error) {
+// https://docs.gitlab.com/ce/api/repositories.html#list-repository-tree
+func (s *RepositoriesService) ListTree(pid interface{}, opt *ListTreeOptions, options ...OptionFunc) ([]*TreeNode, *Response, error) {
 	project, err := parseID(pid)
 	if err != nil {
 		return nil, nil, err
 	}
 	u := fmt.Sprintf("projects/%s/repository/tree", url.QueryEscape(project))
 
-	req, err := s.client.NewRequest("GET", u, opt)
+	req, err := s.client.NewRequest("GET", u, opt, options)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -158,29 +81,19 @@ func (s *RepositoriesService) ListTree(
 	return t, resp, err
 }
 
-// RawFileContentOptions represents the available RawFileContent() options.
+// Blob gets information about blob in repository like size and content. Note
+// that blob content is Base64 encoded.
 //
 // GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#raw-file-content
-type RawFileContentOptions struct {
-	FilePath string `url:"filepath,omitempty" json:"filepath,omitempty"`
-}
-
-// RawFileContent gets the raw file contents for a file by commit SHA and path
-//
-// GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#raw-file-content
-func (s *RepositoriesService) RawFileContent(
-	pid interface{},
-	sha string,
-	opt *RawFileContentOptions) ([]byte, *Response, error) {
+// https://docs.gitlab.com/ce/api/repositories.html#get-a-blob-from-repository
+func (s *RepositoriesService) Blob(pid interface{}, sha string, options ...OptionFunc) ([]byte, *Response, error) {
 	project, err := parseID(pid)
 	if err != nil {
 		return nil, nil, err
 	}
 	u := fmt.Sprintf("projects/%s/repository/blobs/%s", url.QueryEscape(project), sha)
 
-	req, err := s.client.NewRequest("GET", u, opt)
+	req, err := s.client.NewRequest("GET", u, nil, options)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -197,17 +110,15 @@ func (s *RepositoriesService) RawFileContent(
 // RawBlobContent gets the raw file contents for a blob by blob SHA.
 //
 // GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#raw-blob-content
-func (s *RepositoriesService) RawBlobContent(
-	pid interface{},
-	sha string) ([]byte, *Response, error) {
+// https://docs.gitlab.com/ce/api/repositories.html#raw-blob-content
+func (s *RepositoriesService) RawBlobContent(pid interface{}, sha string, options ...OptionFunc) ([]byte, *Response, error) {
 	project, err := parseID(pid)
 	if err != nil {
 		return nil, nil, err
 	}
-	u := fmt.Sprintf("projects/%s/repository/raw_blobs/%s", url.QueryEscape(project), sha)
+	u := fmt.Sprintf("projects/%s/repository/blobs/%s/raw", url.QueryEscape(project), sha)
 
-	req, err := s.client.NewRequest("GET", u, nil)
+	req, err := s.client.NewRequest("GET", u, nil, options)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -224,25 +135,23 @@ func (s *RepositoriesService) RawBlobContent(
 // ArchiveOptions represents the available Archive() options.
 //
 // GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#get-file-archive
+// https://docs.gitlab.com/ce/api/repositories.html#get-file-archive
 type ArchiveOptions struct {
-	SHA string `url:"sha,omitempty" json:"sha,omitempty"`
+	SHA *string `url:"sha,omitempty" json:"sha,omitempty"`
 }
 
 // Archive gets an archive of the repository.
 //
 // GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#get-file-archive
-func (s *RepositoriesService) Archive(
-	pid interface{},
-	opt *ArchiveOptions) ([]byte, *Response, error) {
+// https://docs.gitlab.com/ce/api/repositories.html#get-file-archive
+func (s *RepositoriesService) Archive(pid interface{}, opt *ArchiveOptions, options ...OptionFunc) ([]byte, *Response, error) {
 	project, err := parseID(pid)
 	if err != nil {
 		return nil, nil, err
 	}
 	u := fmt.Sprintf("projects/%s/repository/archive", url.QueryEscape(project))
 
-	req, err := s.client.NewRequest("GET", u, opt)
+	req, err := s.client.NewRequest("GET", u, opt, options)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -259,7 +168,7 @@ func (s *RepositoriesService) Archive(
 // Compare represents the result of a comparison of branches, tags or commits.
 //
 // GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#compare-branches-tags-or-commits
+// https://docs.gitlab.com/ce/api/repositories.html#compare-branches-tags-or-commits
 type Compare struct {
 	Commit         *Commit   `json:"commit"`
 	Commits        []*Commit `json:"commits"`
@@ -275,26 +184,25 @@ func (c Compare) String() string {
 // CompareOptions represents the available Compare() options.
 //
 // GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#compare-branches-tags-or-commits
+// https://docs.gitlab.com/ce/api/repositories.html#compare-branches-tags-or-commits
 type CompareOptions struct {
-	From string `url:"from,omitempty" json:"from,omitempty"`
-	To   string `url:"to,omitempty" json:"to,omitempty"`
+	From     *string `url:"from,omitempty" json:"from,omitempty"`
+	To       *string `url:"to,omitempty" json:"to,omitempty"`
+	Straight *bool   `url:"straight,omitempty" json:"straight,omitempty"`
 }
 
 // Compare compares branches, tags or commits.
 //
 // GitLab API docs:
-// http://doc.gitlab.com/ce/api/repositories.html#compare-branches-tags-or-commits
-func (s *RepositoriesService) Compare(
-	pid interface{},
-	opt *CompareOptions) (*Compare, *Response, error) {
+// https://docs.gitlab.com/ce/api/repositories.html#compare-branches-tags-or-commits
+func (s *RepositoriesService) Compare(pid interface{}, opt *CompareOptions, options ...OptionFunc) (*Compare, *Response, error) {
 	project, err := parseID(pid)
 	if err != nil {
 		return nil, nil, err
 	}
 	u := fmt.Sprintf("projects/%s/repository/compare", url.QueryEscape(project))
 
-	req, err := s.client.NewRequest("GET", u, opt)
+	req, err := s.client.NewRequest("GET", u, opt, options)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -310,7 +218,7 @@ func (s *RepositoriesService) Compare(
 
 // Contributor represents a GitLap contributor.
 //
-// GitLab API docs: http://doc.gitlab.com/ce/api/repositories.html#contributer
+// GitLab API docs: https://docs.gitlab.com/ce/api/repositories.html#contributors
 type Contributor struct {
 	Name      string `json:"name,omitempty"`
 	Email     string `json:"email,omitempty"`
@@ -323,23 +231,62 @@ func (c Contributor) String() string {
 	return Stringify(c)
 }
 
+// ListContributorsOptions represents the available ListContributors() options.
+//
+// GitLab API docs: https://docs.gitlab.com/ce/api/repositories.html#contributors
+type ListContributorsOptions ListOptions
+
 // Contributors gets the repository contributors list.
 //
-// GitLab API docs: http://doc.gitlab.com/ce/api/repositories.html#contributer
-func (s *RepositoriesService) Contributors(pid interface{}) ([]*Contributor, *Response, error) {
+// GitLab API docs: https://docs.gitlab.com/ce/api/repositories.html#contributors
+func (s *RepositoriesService) Contributors(pid interface{}, opt *ListContributorsOptions, options ...OptionFunc) ([]*Contributor, *Response, error) {
 	project, err := parseID(pid)
 	if err != nil {
 		return nil, nil, err
 	}
 	u := fmt.Sprintf("projects/%s/repository/contributors", url.QueryEscape(project))
 
-	req, err := s.client.NewRequest("GET", u, nil)
+	req, err := s.client.NewRequest("GET", u, opt, options)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var c []*Contributor
 	resp, err := s.client.Do(req, &c)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return c, resp, err
+}
+
+// MergeBaseOptions represents the available MergeBase() options.
+//
+// GitLab API docs:
+// https://docs.gitlab.com/ce/api/repositories.html#merge-base
+type MergeBaseOptions struct {
+	Ref []string `url:"refs[],omitempty" json:"refs,omitempty"`
+}
+
+// MergeBase gets the common ancestor for 2 refs (commit SHAs, branch
+// names or tags).
+//
+// GitLab API docs:
+// https://docs.gitlab.com/ce/api/repositories.html#merge-base
+func (s *RepositoriesService) MergeBase(pid interface{}, opt *MergeBaseOptions, options ...OptionFunc) (*Commit, *Response, error) {
+	project, err := parseID(pid)
+	if err != nil {
+		return nil, nil, err
+	}
+	u := fmt.Sprintf("projects/%s/repository/merge_base", url.QueryEscape(project))
+
+	req, err := s.client.NewRequest("GET", u, opt, options)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	c := new(Commit)
+	resp, err := s.client.Do(req, c)
 	if err != nil {
 		return nil, resp, err
 	}
