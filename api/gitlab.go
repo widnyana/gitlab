@@ -378,9 +378,12 @@ func NewBasicAuthClient(httpClient *http.Client, endpoint, username, password st
 	client.authType = basicAuth
 	client.username = username
 	client.password = password
-	client.SetBaseURL(endpoint)
+	err := client.SetBaseURL(endpoint)
+	if err != nil {
+		return nil, err
+	}
 
-	err := client.requestOAuthToken(context.TODO())
+	err = client.requestOAuthToken(context.TODO())
 	if err != nil {
 		return nil, err
 	}
