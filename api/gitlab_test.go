@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -175,5 +176,26 @@ func TestBoolValue(t *testing.T) {
 				t.Fatalf("Expected %v but got %v", testCase.expected, b)
 			}
 		})
+	}
+}
+
+func TestSetBaseURL(t *testing.T) {
+	// mux is the HTTP request multiplexer used with the test server.
+	mux := http.NewServeMux()
+
+	// server is a test HTTP server used to provide mock API responses.
+	server := httptest.NewServer(mux)
+
+	expected := server.URL
+	if !strings.HasSuffix(expected, "/") {
+		expected = fmt.Sprintf("%s/", expected)
+	}
+
+	// client is the Gitlab client being tested.
+	client := NewClient(nil, "")
+	client.SetBaseURL(server.URL)
+
+	if client.baseURL.String() != expected {
+		t.Errorf("Failed setting base url. expecting: %s got: %s", expected, client.baseURL.String())
 	}
 }
